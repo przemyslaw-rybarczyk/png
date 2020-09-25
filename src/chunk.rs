@@ -1,5 +1,5 @@
 use crate::file::ByteReader;
-use std::io;
+use crate::Result;
 use std::io::Seek;
 use std::fs::File;
 
@@ -10,7 +10,7 @@ pub struct ChunkReader<'a> {
 }
 
 impl ChunkReader<'_> {
-    pub fn new(file: &mut File) -> io::Result<(ChunkReader, u32, Box<[u8]>)> {
+    pub fn new(file: &mut File) -> Result<(ChunkReader, u32, Box<[u8]>)> {
         println!("");
         let length = file.read_u32()?;
         println!("Length: {}", length);
@@ -22,7 +22,7 @@ impl ChunkReader<'_> {
         Ok((ChunkReader { file, length, bytes_read: 0 }, length, chunk_type))
     }
 
-    pub fn end(self) -> io::Result<()> {
+    pub fn end(self) -> Result<()> {
         if self.bytes_read < self.length {
             self.file.seek(std::io::SeekFrom::Current((self.length - self.bytes_read) as i64))?;
         }
@@ -32,7 +32,7 @@ impl ChunkReader<'_> {
 }
 
 impl ByteReader for ChunkReader<'_> {
-    fn read_buf(&mut self, len: usize) -> io::Result<Box<[u8]>> {
+    fn read_buf(&mut self, len: usize) -> Result<Box<[u8]>> {
         // TODO check for end
         let buf = self.file.read_buf(len)?;
         self.bytes_read += len as u32;

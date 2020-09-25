@@ -66,7 +66,7 @@ pub fn get_interlace_method(interlace_method: u8) -> Result<InterlaceMethod> {
     }
 }
 
-pub fn load_ihdr(file: &mut File) -> Result<(u32, u32, PartialColorMode, InterlaceMethod)> {
+pub fn load_ihdr(file: File) -> Result<(File, u32, u32, PartialColorMode, InterlaceMethod)> {
     let (mut chunk, _, chunk_type) = ChunkReader::new(file)?;
     if *chunk_type != *b"IHDR" {
         return Err(Error::Format("First chunk is not IHDR"));
@@ -104,6 +104,6 @@ pub fn load_ihdr(file: &mut File) -> Result<(u32, u32, PartialColorMode, Interla
     let interlace_method = chunk.read_u8()?;
     println!("Interlace method: {}", interlace_method);
     let interlace_method = get_interlace_method(interlace_method)?;
-    chunk.end()?;
-    Ok((width, height, partial_color_mode, interlace_method))
+    let file = chunk.end()?;
+    Ok((file, width, height, partial_color_mode, interlace_method))
 }

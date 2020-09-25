@@ -7,6 +7,7 @@ macro_rules! warn {
 
 mod chunk;
 mod file;
+mod idat;
 mod ihdr;
 
 use crate::chunk::ChunkReader;
@@ -44,10 +45,11 @@ fn main() -> Result<()> {
         return Err(Error::Format("Invalid PNG signature"));
     }
 
-    let (width, height, partial_color_mode, interlace_method) = ihdr::load_ihdr(&mut file)?;
+    // TODO make interface nicer (don't shadow file)
+    let (mut file, width, height, partial_color_mode, interlace_method) = ihdr::load_ihdr(file)?;
 
     loop {
-        let (chunk, length, chunk_type) = ChunkReader::new(&mut file)?;
+        let (chunk, length, chunk_type) = ChunkReader::new(file)?;
         match &*chunk_type {
             b"IHDR" => {
                 warn!("Multiple IHDR chunks");
@@ -66,7 +68,7 @@ fn main() -> Result<()> {
                 }
             },
         }
-        chunk.end()?;
+        file = chunk.end()?;
         if *chunk_type == *b"IEND" {
             // TODO check for EOF
             break;

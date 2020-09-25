@@ -9,9 +9,12 @@ mod chunk;
 mod file;
 mod idat;
 mod ihdr;
+mod zlib;
 
 use crate::chunk::ChunkReader;
 use crate::file::ByteReader;
+use crate::idat::IdatReader;
+use crate::zlib::ZlibReader;
 use std::env;
 use std::fs::File;
 use std::io;
@@ -49,12 +52,14 @@ fn main() -> Result<()> {
     let (mut file, width, height, partial_color_mode, interlace_method) = ihdr::load_ihdr(file)?;
 
     loop {
-        let (chunk, length, chunk_type) = ChunkReader::new(file)?;
+        let (mut chunk, length, chunk_type) = ChunkReader::new(file)?;
         match &*chunk_type {
             b"IHDR" => {
                 warn!("Multiple IHDR chunks");
             },
             b"IDAT" => {
+                let zlib = ZlibReader::new(IdatReader::new(chunk)?)?;
+                chunk = zlib.end()?.end()?;
             },
             b"IEND" => {
                 if length != 0 {

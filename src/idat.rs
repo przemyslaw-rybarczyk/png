@@ -3,21 +3,21 @@ use crate::file::ByteReader;
 use crate::Error;
 use crate::Result;
 
-pub struct IDATReader {
+pub struct IdatReader {
     chunk: ChunkReader,
 }
 
-impl IDATReader {
-    fn new(chunk: ChunkReader) -> IDATReader {
-        IDATReader { chunk }
+impl IdatReader {
+    pub fn new(chunk: ChunkReader) -> Result<IdatReader> {
+        Ok(IdatReader { chunk })
     }
 
-    fn end(self) -> Result<ChunkReader> {
+    pub fn end(self) -> Result<ChunkReader> {
         Ok(self.chunk)
     }
 }
 
-impl ByteReader for IDATReader {
+impl ByteReader for IdatReader {
     fn read_buf(&mut self, len: u32) -> Result<Box<[u8]>> {
         match self.chunk.read_buf(len) {
             Err(Error::EndOfChunk(data)) => {

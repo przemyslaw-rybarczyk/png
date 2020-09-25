@@ -1,4 +1,5 @@
 use crate::file::ByteReader;
+use crate::Error;
 use crate::Result;
 use std::io::Seek;
 use std::fs::File;
@@ -32,10 +33,13 @@ impl ChunkReader<'_> {
 }
 
 impl ByteReader for ChunkReader<'_> {
-    fn read_buf(&mut self, len: usize) -> Result<Box<[u8]>> {
-        // TODO check for end
+    fn read_buf(&mut self, len: u32) -> Result<Box<[u8]>> {
+        if self.bytes_read + len > self.length {
+            let buf = self.file.read_buf(self.length - self.bytes_read)?;
+            return Err(Error::EndOfChunk(buf));
+        }
         let buf = self.file.read_buf(len)?;
-        self.bytes_read += len as u32;
+        self.bytes_read += len;
         Ok(buf)
     }
 }

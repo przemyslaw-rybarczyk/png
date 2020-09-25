@@ -3,7 +3,7 @@ use std::io::Read;
 use std::fs::File;
 
 pub trait ByteReader {
-    fn read_buf(&mut self, len: usize) -> Result<Box<[u8]>>;
+    fn read_buf(&mut self, len: u32) -> Result<Box<[u8]>>;
 
     fn read_u8(&mut self) -> Result<u8> {
         let buf = self.read_buf(1)?;
@@ -22,8 +22,8 @@ pub trait ByteReader {
 }
 
 impl ByteReader for File {
-    fn read_buf(&mut self, len: usize) -> Result<Box<[u8]>> {
-        let mut buf = vec![0; len].into_boxed_slice();
+    fn read_buf(&mut self, len: u32) -> Result<Box<[u8]>> {
+        let mut buf = vec![0; len as usize].into_boxed_slice();
         self.read_exact(&mut buf)?;
         Ok(buf)
     }

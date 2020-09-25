@@ -18,6 +18,7 @@ use std::io;
 #[derive(Debug)]
 pub enum Error {
     IO(io::Error),
+    EndOfChunk(Box<[u8]>),
     Format(&'static str),
 }
 

@@ -25,6 +25,29 @@ pub enum ColorMode {
     RGBA16,
 }
 
+impl ColorMode {
+    pub fn bits_per_pixel(&self) -> usize {
+        use ColorMode::*;
+        match self {
+            Grayscale1 => 1,
+            Grayscale2 => 2,
+            Grayscale4 => 4,
+            Grayscale8 => 8,
+            Grayscale16 => 16,
+            RGB8 => 24,
+            RGB16 => 48,
+            Palette1(_) => 1,
+            Palette2(_) => 2,
+            Palette4(_) => 4,
+            Palette8(_) => 8,
+            GrayscaleAlpha8 => 16,
+            GrayscaleAlpha16 => 32,
+            RGBA8 => 32,
+            RGBA16 => 64,
+        }
+    }
+}
+
 pub enum PartialColorMode {
     Full(ColorMode),
     Partial(fn(Palette) -> ColorMode),
@@ -53,6 +76,7 @@ pub fn get_color_mode(bit_depth: u8, color_type: u8) -> Result<PartialColorMode>
     }
 }
 
+#[derive(Copy, Clone)]
 pub enum InterlaceMethod {
     NoInterlace,
     Adam7,

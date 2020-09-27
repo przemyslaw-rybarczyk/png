@@ -14,7 +14,10 @@ mod zlib;
 use crate::chunk::ChunkReader;
 use crate::file::ByteReader;
 use crate::idat::IdatReader;
-use crate::zlib::ZlibReader;
+use crate::ihdr::PartialColorMode;
+use crate::ihdr::ColorMode;
+use crate::ihdr::InterlaceMethod;
+use crate::zlib::read_zlib;
 use std::env;
 use std::fs::File;
 use std::io;
@@ -36,6 +39,13 @@ type Result<T> = std::result::Result<T, Error>;
 
 const PNG_SIG : [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
 
+fn decompressed_data_length(width: u32, height: u32, color_mode: &ColorMode, interlace_method: InterlaceMethod) -> usize {
+    match interlace_method {
+        InterlaceMethod::NoInterlace => ((width as usize * color_mode.bits_per_pixel() + 7) / 8 + 1) * height as usize,
+        InterlaceMethod::Adam7 => std::todo!(),
+    }
+}
+
 fn main() -> Result<()> {
     let mut args = env::args();
     if args.len() != 2 {
@@ -50,6 +60,10 @@ fn main() -> Result<()> {
 
     // TODO make interface nicer (don't shadow file)
     let (mut file, width, height, partial_color_mode, interlace_method) = ihdr::load_ihdr(file)?;
+    let color_mode = match partial_color_mode {
+        PartialColorMode::Full(mode) => mode,
+        PartialColorMode::Partial(_) => std::todo!(),
+    };
 
     loop {
         let (mut chunk, length, chunk_type) = ChunkReader::new(file)?;
@@ -58,8 +72,8 @@ fn main() -> Result<()> {
                 warn!("Multiple IHDR chunks");
             },
             b"IDAT" => {
-                let zlib = ZlibReader::new(IdatReader::new(chunk)?)?;
-                chunk = zlib.end()?.end()?;
+                let mut buf = vec![0; decompressed_data_length(width, height, &color_mode, interlace_method)].into_boxed_slice();
+                chunk = read_zlib(IdatReader::new(chunk)?, &mut buf)?.end()?;
             },
             b"IEND" => {
                 if length != 0 {

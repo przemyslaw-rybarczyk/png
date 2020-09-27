@@ -23,7 +23,7 @@ impl ByteReader for IdatReader {
             Err(Error::EndOfChunk(data)) => {
                 let len = len as usize;
                 let mut buf = vec![0; len].into_boxed_slice();
-                for i in 0 .. len {
+                for i in 0 .. data.len() {
                     buf[i] = data[i];
                 }
                 let mut bytes_read = data.len();

@@ -70,7 +70,17 @@ fn next_block(idat: &mut BitReader<IdatReader>) -> Result<(bool, BlockType)> {
             }
             BlockType::Uncompressed(len)
         },
-        1 => std::todo!(),
+        1 => {
+            let mut literals_lengths: Box<[(u16, u16)]> = vec![(0, 0); 288].into_boxed_slice();
+            for (i, v) in literals_lengths.iter_mut().enumerate() {
+                *v = (if i < 144 { 8 } else if i < 256 { 9 } else if i < 280 { 7 } else { 8 }, i as u16);
+            }
+            let mut distances_lengths = vec![(0, 0); 32].into_boxed_slice();
+            for (i, v) in distances_lengths.iter_mut().enumerate() {
+                *v = (5, i as u16);
+            }
+            BlockType::Huffman(HuffmanCodes::new(&mut literals_lengths)?, HuffmanCodes::new(&mut distances_lengths)?)
+        },
         2 => {
             let literals_num = (idat.read_bits(5)? as usize) + 257;
             println!("Number of literal/length codes: {}", literals_num);
@@ -164,6 +174,15 @@ pub fn read_zlib(mut idat: IdatReader, buf: &mut [u8]) -> Result<IdatReader> {
     loop {
         let (block_final, block_type) = next_block(&mut idat)?;
         match block_type {
+            BlockType::Uncompressed(len) => {
+                for _ in 0 .. len {
+                    if i >= buf.len() {
+                        return Err(Error::Format("Too much image data"));
+                    }
+                    buf[i] = idat.read_u8()?;
+                    i += 1;
+                }
+            },
             BlockType::Huffman(literal_codes, distance_codes) => {
                 loop {
                     let val = read_huffman(&mut idat, &literal_codes)?;
@@ -200,7 +219,6 @@ pub fn read_zlib(mut idat: IdatReader, buf: &mut [u8]) -> Result<IdatReader> {
                     }
                 }
             },
-            _ => std::todo!(),
         }
         if block_final {
             break;

@@ -72,7 +72,7 @@ impl<T> BitReader<T> where T: ByteReader {
             let bits = self.byte as u16;
             let byte1 = self.reader.read_u8()?;
             let byte2 = self.reader.read_u8()?;
-            let bits = (bits | ((byte1 as u16) << 8) | ((byte2 as u16) << self.bits_left)) & ((1 << len) - 1);
+            let bits = (bits | ((byte1 as u16) << self.bits_left) | ((byte2 as u16) << (8 + self.bits_left))) & ((1 << len) - 1);
             self.byte = u8::wrapping_shr(byte2, (len - self.bits_left - 8) as u32);
             self.bits_left = self.bits_left + 16 - len;
             Ok(bits)

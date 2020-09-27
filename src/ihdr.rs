@@ -53,7 +53,7 @@ pub enum PartialColorMode {
     Partial(fn(Palette) -> ColorMode),
 }
 
-pub fn get_color_mode(bit_depth: u8, color_type: u8) -> Result<PartialColorMode> {
+fn get_color_mode(bit_depth: u8, color_type: u8) -> Result<PartialColorMode> {
     use ColorMode::*;
     use PartialColorMode::*;
     match (color_type, bit_depth) {
@@ -82,7 +82,7 @@ pub enum InterlaceMethod {
     Adam7,
 }
 
-pub fn get_interlace_method(interlace_method: u8) -> Result<InterlaceMethod> {
+fn get_interlace_method(interlace_method: u8) -> Result<InterlaceMethod> {
     match interlace_method {
         0 => Ok(InterlaceMethod::NoInterlace),
         1 => Ok(InterlaceMethod::Adam7),

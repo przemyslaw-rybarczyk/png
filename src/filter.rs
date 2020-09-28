@@ -1,5 +1,6 @@
 use crate::ihdr::ColorMode;
 use crate::ihdr::InterlaceMethod;
+use crate::ihdr::Palette;
 use crate::Error;
 use crate::Result;
 
@@ -28,6 +29,14 @@ impl FilterType {
 
 fn color_16_to_8(upper: u8, lower: u8) -> u8 {
     ((upper as f64 * 256.0 + lower as f64) * 255.0 / 65535.0).round() as u8
+}
+
+fn palette_color(palette: &Palette, index: usize) -> Result<(u8, u8, u8, u8)> {
+    if index >= palette.len() {
+        return Err(Error::Format("Palette indexed past end"));
+    }
+    let color = palette[index];
+    Ok((color.0, color.1, color.2, 255))
 }
 
 pub fn unfilter_uninterlace(data: &mut [u8], pixels: &mut [u8], pitch: usize, width: u32, height: u32, color_mode: &ColorMode, interlace_method: InterlaceMethod) -> Result<()> {
@@ -91,6 +100,19 @@ pub fn unfilter_uninterlace(data: &mut [u8], pixels: &mut [u8], pitch: usize, wi
                             color_16_to_8(data[i + 4], data[i + 5]),
                             255,
                         ),
+                        ColorMode::Palette1(palette) => {
+                            let index = (data[i].wrapping_shr((7 - x % 8) as u32) & 0x01) as usize;
+                            palette_color(palette, index)?
+                        },
+                        ColorMode::Palette2(palette) => {
+                            let index = (data[i].wrapping_shr(((3 - x % 4) * 2) as u32) & 0x03) as usize;
+                            palette_color(palette, index)?
+                        },
+                        ColorMode::Palette4(palette) => {
+                            let index = (data[i].wrapping_shr(((1 - x % 2) * 4) as u32) & 0x0F) as usize;
+                            palette_color(palette, index)?
+                        },
+                        ColorMode::Palette8(palette) => palette_color(palette, data[i] as usize)?,
                         ColorMode::GrayscaleAlpha8 => (data[i + 0], data[i + 0], data[i + 0], data[i + 1]),
                         ColorMode::GrayscaleAlpha16 => {
                             let color = color_16_to_8(data[i + 0], data[i + 1]);

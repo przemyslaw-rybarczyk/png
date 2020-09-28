@@ -92,16 +92,12 @@ fn main() -> Result<()> {
         return Err(Error::Format("Invalid PNG signature"));
     }
 
-    // TODO make interface nicer (don't shadow file)
-    let (mut file, width, height, partial_color_mode, interlace_method) = ihdr::load_ihdr(file)?;
+    let (mut file, width, height, mut partial_color_mode, interlace_method) = ihdr::load_ihdr(file)?;
     let mut canvas = video_subsystem.window(&filename, width, height).build()?.into_canvas().build()?;
     let texture_creator = canvas.texture_creator();
     let mut texture = texture_creator.create_texture_streaming(sdl2::pixels::PixelFormatEnum::ARGB8888, width, height)?;
-
-    let color_mode = match partial_color_mode {
-        PartialColorMode::Full(mode) => mode,
-        PartialColorMode::Partial(_) => std::todo!(),
-    };
+    let mut after_plte = false;
+    let mut after_idat = false;
 
     loop {
         let (mut chunk, length, chunk_type) = ChunkReader::new(file)?;
@@ -109,18 +105,66 @@ fn main() -> Result<()> {
             b"IHDR" => {
                 warn!("Multiple IHDR chunks");
             },
+            b"PLTE" => {
+                if after_plte {
+                    warn!("Multiple PLTE chunks");
+                }
+                if after_idat {
+                    warn!("PLTE chunk after IDAT chunk");
+                }
+                after_plte = true;
+                let mut palette = vec![(0, 0, 0); length as usize / 3].into_boxed_slice();
+                for (_, v) in palette.iter_mut().enumerate() {
+                    *v = (chunk.read_u8()?, chunk.read_u8()?, chunk.read_u8()?);
+                }
+                if length % 3 != 0 {
+                    warn!("Number of bytes in PLTE chunk is not a multiple of 3");
+                }
+                match partial_color_mode {
+                    PartialColorMode::Full(ColorMode::Grayscale1) |
+                    PartialColorMode::Full(ColorMode::Grayscale2) |
+                    PartialColorMode::Full(ColorMode::Grayscale4) |
+                    PartialColorMode::Full(ColorMode::Grayscale8) |
+                    PartialColorMode::Full(ColorMode::Grayscale16) |
+                    PartialColorMode::Full(ColorMode::GrayscaleAlpha8) |
+                    PartialColorMode::Full(ColorMode::GrayscaleAlpha16) =>
+                        warn!("PLTE chunk with grayscale color"),
+                    PartialColorMode::Partial(f) => partial_color_mode = PartialColorMode::Full(f(palette)),
+                    _ => (),
+                }
+                let max_palette = match partial_color_mode {
+                    PartialColorMode::Full(ColorMode::Palette1(_)) => 2,
+                    PartialColorMode::Full(ColorMode::Palette2(_)) => 4,
+                    PartialColorMode::Full(ColorMode::Palette4(_)) => 16,
+                    _ => 256,
+                };
+                if length / 3 > max_palette {
+                    warn!("Palette exceeds maximum length for color type");
+                }
+            },
             b"IDAT" => {
-                let mut buf = vec![0; decompressed_data_length(width, height, &color_mode, interlace_method)].into_boxed_slice();
+                if after_idat {
+                    warn!("More IDAT chunks");
+                }
+                let color_mode = match partial_color_mode {
+                    PartialColorMode::Full(ref mode) => mode,
+                    PartialColorMode::Partial(_) => return Err(Error::Format("No PLTE chunk befor IDAT with indexed colors")),
+                };
+                let mut buf = vec![0; decompressed_data_length(width, height, color_mode, interlace_method)].into_boxed_slice();
                 chunk = zlib::read_zlib(IdatReader::new(chunk)?, &mut buf)?.end()?;
                 texture.with_lock(None,
-                    |pixels, pitch| filter::unfilter_uninterlace(&mut buf, pixels, pitch, width, height, &color_mode, interlace_method))
+                    |pixels, pitch| filter::unfilter_uninterlace(&mut buf, pixels, pitch, width, height, color_mode, interlace_method))
                     .map_err(Error::Sdl)??;
                 canvas.copy(&texture, None, None).map_err(Error::Sdl)?;
                 canvas.present();
+                after_idat = true;
             },
             b"IEND" => {
                 if length != 0 {
                     warn!("IEND chunk has nonzero length");
+                }
+                if !after_idat {
+                    warn!("No IDAT chunk before IEND chunk");
                 }
             },
             _ => {

@@ -4,8 +4,7 @@ use crate::Error;
 use crate::Result;
 use std::fs::File;
 
-pub struct Palette {
-}
+pub type Palette = Box<[(u8, u8, u8)]>;
 
 pub enum ColorMode {
     Grayscale1,
